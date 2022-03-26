@@ -6,6 +6,7 @@ Created on Sat Mar 26 21:03:29 2022
 """
 import os
 import splitfolders
+from keras.utils import to_categorical
 
 """
 Clear previous content of the train/test/val dirs, 
@@ -29,3 +30,11 @@ def clear_and_ttv_split(dataset: str, patch_size: int):
                 
     splitfolders.ratio(input_folder, output=output_folder, 
                         seed=1998, ratio=(.8, .1, .1), group_prefix=None)
+    
+def preprocess_img(img, label, n_classes, scaler, sm_input):
+    img = scaler.fit_transform(img.reshape(-1, img.shape[-1])).reshape(img.shape)
+    label = to_categorical(label, n_classes)
+    if sm_input:
+        img = sm_input(img)
+    
+    return (img, label)
