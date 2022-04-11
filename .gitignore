@@ -113,6 +113,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# PyCharm
+.idea/
+
+# Project related ignores
 *tif
 *png
 *tfw
+experiments/logs/
+models/
