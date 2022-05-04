@@ -11,8 +11,11 @@ import random
 import segmentation_models as sm
 import tensorflow as tf
 from skimage import io
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 from matplotlib import pyplot as plt
-from preprocessing.utils import clear_and_ttv_split, preprocess_data, generate_train_data
+from preprocessing.utils import clear_and_ttv_split, preprocess_data, generate_data
+from tensorflow.keras.models import load_model
+from tensorflow.keras.metrics import MeanIoU
 
 if __name__ == '__main__':
     """
@@ -20,7 +23,6 @@ if __name__ == '__main__':
     then train/test/val split of the patched data
     """
     # clear_and_ttv_split('potsdam_rgb', 256)
-
 
     """
     Initial sanity check of the data
@@ -58,7 +60,6 @@ if __name__ == '__main__':
     epochs = 25
 
     backbone = 'resnet34'
-    # backbone_input = sm.get_preprocessing(backbone)
 
     train_aug_img_dir = os.path.join('..', 'data', 'potsdam_rgb', 'data_for_augmentation', 'train_images')
     train_aug_label_dir = os.path.join('..', 'data', 'potsdam_rgb', 'data_for_augmentation', 'train_labels')
@@ -66,9 +67,9 @@ if __name__ == '__main__':
     val_aug_label_dir = os.path.join('..', 'data', 'potsdam_rgb', 'data_for_augmentation', 'val_labels')
 
     train_dir = os.path.dirname(train_img_dir)
-    train_img_gen = generate_train_data(train_aug_img_dir, train_aug_label_dir,
+    train_img_gen = generate_data(train_aug_img_dir, train_aug_label_dir,
                                         batch_size, seed, n_classes, backbone)
-    val_img_gen = generate_train_data(val_aug_img_dir, val_aug_label_dir,
+    val_img_gen = generate_data(val_aug_img_dir, val_aug_label_dir,
                                       batch_size, seed, n_classes, backbone)
 
     # X_raw, y_raw = train_img_gen.__next__()
@@ -103,13 +104,23 @@ if __name__ == '__main__':
     model = sm.Unet(backbone, encoder_weights='imagenet', input_shape=(IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS),
                     classes=n_classes, activation='softmax')
 
-    model.compile('Adam', loss=sm.losses.categorical_focal_jaccard_loss,
+    losses_dict = {
+        'focal_jaccard': sm.losses.categorical_focal_jaccard_loss,
+        'focal_dice': sm.losses.categorical_focal_dice_loss,
+        'focal': sm.losses.categorical_focal_loss,
+        'dice': sm.losses.dice_loss,
+        'jaccard': sm.losses.jaccard_loss
+    }
+    loss_key = 'dice'
+    
+    model.compile('Adam', loss=losses_dict[loss_key],
                   metrics=[sm.metrics.iou_score, sm.metrics.f1_score])
 
     print(model.summary())
     print(model.input_shape)
 
-    model_dir = os.path.join('..', 'models', 'isprs_postdamRGB_' + str(epochs) + 'epochs_' + str(backbone) +'_backbone_' + str(batch_size) + 'batch.hdf5')
+    model_dir = os.path.join('..', 'models', 
+                              'isprs_postdamRGB_' + str(backbone) + '_' + str(epochs) + 'epochs_' + loss_key + '.hdf5')
     callbacks = [
         tf.keras.callbacks.ModelCheckpoint(model_dir, verbose=1, save_best_only=True),
         tf.keras.callbacks.TensorBoard(log_dir='logs')
@@ -141,12 +152,68 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    fscore = history.history['f_score']
-    val_fscore = history.history['val_f_score']
+    fscore = history.history['f1-score']
+    val_fscore = history.history['val_f1-score']
     plt.plot(epochs, fscore, 'y', label='Training F-score')
     plt.plot(epochs, val_fscore, 'r', label='Validation F-score')
     plt.title('Training and validation F-score')
     plt.xlabel('Epochs')
     plt.ylabel('F-score')
     plt.legend()
+    plt.show()
+    
+    """
+    Holistic predictions with per class results
+    """
+    model_path = os.path.join('..', 'models', 'isprs_postdamRGB_resnet34_25epochs_focal_jaccard.hdf5')
+    model = load_model(model_path, compile=False)
+    
+    total_cm = np.zeros((1, n_classes, n_classes))
+    
+    for step in range(val_steps_per_epoch):
+        X_val, y_val = val_img_gen.__next__()
+        predictions = model.predict_on_batch(X_val)
+        val_preds = np.argmax(predictions, axis=-1)
+        val_trues = np.argmax(y_val, axis=-1)
+        val_preds = val_preds.flatten()
+        val_trues = val_trues.flatten()
+        cm = confusion_matrix(val_trues, val_preds, labels=[i for i in range(n_classes)])
+        total_cm = np.add(total_cm, cm)
+    
+    
+    """
+    Sample predictions
+    """
+    model_path = os.path.join('..', 'models', 'isprs_postdamRGB_resnet34_25epochs_focal_jaccard.hdf5')
+    model = load_model(model_path, compile=False)
+    
+    val_img_batch, val_label_batch = val_img_gen.__next__()
+    
+    val_pred_batch = model.predict(val_img_batch)
+    val_label_batch_argmax = np.argmax(val_label_batch, axis=3)
+    val_pred_batch_argmax = np.argmax(val_pred_batch, axis=3)
+    
+    IOU_keras = MeanIoU(num_classes=n_classes)
+    IOU_keras.update_state(val_pred_batch_argmax[10], val_label_batch_argmax[10])
+    print('Mean IoU = ', IOU_keras.result().numpy())
+    
+    color_palette = np.array([[255, 255, 255],
+                              [0, 0, 255],
+                              [0, 255, 255],
+                              [0, 255, 0],
+                              [255, 255, 0],
+                              [255, 0, 0]])
+    
+    img_id = random.randint(0, val_img_batch.shape[0]-1)
+    print(img_id)
+    plt.figure(figsize=(12, 8))
+    plt.subplot(131)
+    plt.title('Image')
+    plt.imshow(val_img_batch[img_id])
+    plt.subplot(132)
+    plt.title('Ground Truth')
+    plt.imshow(color_palette[val_label_batch_argmax[img_id]])
+    plt.subplot(133)
+    plt.title('Prediction')
+    plt.imshow(color_palette[val_pred_batch_argmax[img_id]])
     plt.show()

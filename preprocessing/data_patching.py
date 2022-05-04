@@ -12,13 +12,13 @@ from patchify import patchify
 from PIL import Image
 
 """
-Patchifying source images along with the corresponding masks to 256x256x3 
+Patchifying source images along with the corresponding masks to 
 fragments and saving them to ../data/patched_{images/labels} directory
 """
 
 # Config variables
 patch_size = 256
-dataset_folder = 'potsdam_rgb'
+dataset_folder = 'potsdam_irrg'
 
 root_dir = os.path.join('..', 'data')
 for path, subdirs, files in os.walk(root_dir):

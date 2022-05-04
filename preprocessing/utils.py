@@ -72,7 +72,7 @@ def preprocess_data(img, label, n_classes, backbone):
     return (img, label)
 
 
-def generate_train_data(train_img_path, train_label_path, batch_size, seed, n_classes, backbone):
+def generate_data(img_path, label_path, batch_size, seed, n_classes, backbone):
     gen_args = dict(horizontal_flip=True,
                     vertical_flip=True,
                     fill_mode='reflect')
@@ -80,17 +80,18 @@ def generate_train_data(train_img_path, train_label_path, batch_size, seed, n_cl
     img_datagen = ImageDataGenerator(**gen_args)
     label_datagen = ImageDataGenerator(**gen_args)
 
-    img_gen = img_datagen.flow_from_directory(train_img_path,
+    img_gen = img_datagen.flow_from_directory(img_path,
                                               class_mode=None,
                                               batch_size=batch_size,
                                               seed=seed)
-    label_gen = label_datagen.flow_from_directory(train_label_path,
+    label_gen = label_datagen.flow_from_directory(label_path,
                                                   class_mode=None,
                                                   color_mode='rgb',
                                                   batch_size=batch_size,
                                                   seed=seed)
-
-    train_gen = zip(img_gen, label_gen)
-    for (img, label_temp) in train_gen:
+    gen = zip(img_gen, label_gen)
+    for (img, label_temp) in gen:
+        idx = (img_gen.batch_index - 1) * img_gen.batch_size
+        print(img_gen.filenames[idx : idx + img_gen.batch_size])
         img, label_temp = preprocess_data(img, label_temp, n_classes, backbone)
         yield (img, label_temp)
