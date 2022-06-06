@@ -8,6 +8,7 @@ import os
 import numpy as np
 import splitfolders
 import segmentation_models as sm
+from matplotlib import pyplot as plt
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.preprocessing import MinMaxScaler
@@ -35,7 +36,7 @@ def clear_and_ttv_split(dataset: str, patch_size: int):
                         os.remove(os.path.join(path, f))
 
     splitfolders.ratio(input_folder, output=output_folder,
-                       seed=1998, ratio=(.8, .1, .1), group_prefix=None)
+                       seed=1998, ratio=(.5, .2, .3), group_prefix=None)
 
 
 def rgb_to_2D_label(label):
@@ -60,10 +61,10 @@ def rgb_to_2D_label(label):
     return label2D
 
 
-def preprocess_data(img, label, n_classes, backbone):
-    scaler = MinMaxScaler()
-    img = scaler.fit_transform(img.reshape(-1, img.shape[-1])).reshape(img.shape)
-    if backbone:
+def preprocess_data(img, label, n_classes, backbone, raw_imgs):
+    # scaler = MinMaxScaler()
+    # img = scaler.fit_transform(img.reshape(-1, img.shape[-1])).reshape(img.shape)
+    if not raw_imgs:
         sm_input = sm.get_preprocessing(backbone)
         img = sm_input(img)
 
@@ -72,10 +73,16 @@ def preprocess_data(img, label, n_classes, backbone):
     return (img, label)
 
 
-def generate_data(img_path, label_path, batch_size, seed, n_classes, backbone):
-    gen_args = dict(horizontal_flip=True,
-                    vertical_flip=True,
-                    fill_mode='reflect')
+def generate_data(img_path, label_path, batch_size, seed, n_classes, backbone, no_augment=False, raw_imgs=False):
+    if no_augment:
+        gen_args = dict(horizontal_flip=False,
+                        vertical_flip=False,
+                        fill_mode='reflect')
+    else:
+        gen_args = dict(horizontal_flip=True,
+                        vertical_flip=True,
+                        fill_mode='reflect')
+    
 
     img_datagen = ImageDataGenerator(**gen_args)
     label_datagen = ImageDataGenerator(**gen_args)
@@ -92,6 +99,6 @@ def generate_data(img_path, label_path, batch_size, seed, n_classes, backbone):
     gen = zip(img_gen, label_gen)
     for (img, label_temp) in gen:
         idx = (img_gen.batch_index - 1) * img_gen.batch_size
-        print(img_gen.filenames[idx : idx + img_gen.batch_size])
-        img, label_temp = preprocess_data(img, label_temp, n_classes, backbone)
+        # print(img_gen.filenames[idx : idx + img_gen.batch_size])
+        img, label_temp = preprocess_data(img, label_temp, n_classes, backbone, raw_imgs)
         yield (img, label_temp)
