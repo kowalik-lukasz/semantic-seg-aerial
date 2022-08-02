@@ -31,7 +31,7 @@ if __name__ == '__main__':
     """
     Initial sanity check of the data
     """
-    dataset_name = 'potsdam_irrg'
+    dataset_name = 'potsdam_rgb'
     patch_size = 256
     train_img_dir = os.path.join('..', 'data', dataset_name, 'data_for_augmentation_' + str(patch_size), 'train_images', 'train')
     train_label_dir = os.path.join('..', 'data', dataset_name, 'data_for_augmentation_' + str(patch_size), 'train_labels', 'train')
@@ -223,7 +223,7 @@ if __name__ == '__main__':
     """
     Sample predictions
     """
-    model_path = os.path.join('..', 'models', 'isprs_potsdam_irrg_unet_efficientnetb1_25epochs_dice.hdf5')
+    model_path = os.path.join('..', 'models', 'isprs_potsdam_rgb_unet_efficientnetb1_25epochs_dice.hdf5')
     model = load_model(model_path, compile=False)
     test_img_gen = generate_data(test_aug_img_dir, test_aug_label_dir,
                                       batch_size, seed, n_classes, backbone, 
@@ -255,7 +255,7 @@ if __name__ == '__main__':
     print(img_id)
     plt.figure(figsize=(12, 8))
     plt.subplot(131)
-    plt.title('Obraz wejciowy')
+    plt.title('Obraz wejściowy')
     scaler = MinMaxScaler()
     raw_img_batch = scaler.fit_transform(raw_img_batch.reshape(-1, raw_img_batch.shape[-1])).reshape(raw_img_batch.shape)
     plt.imshow(raw_img_batch[img_id])

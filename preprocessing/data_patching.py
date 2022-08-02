@@ -18,7 +18,7 @@ fragments and saving them to ../data/patched_{images/labels} directory
 
 # Config variables
 patch_size = 256
-dataset_folder = 'potsdam_irrg'
+dataset_folder = 'potsdam_rgb_windowed'
 
 root_dir = os.path.join('..', 'data')
 for path, subdirs, files in os.walk(root_dir):
@@ -40,7 +40,7 @@ for path, subdirs, files in os.walk(root_dir):
                     print('Patchifying image tile: ', os.path.join(path, 
                                                                     tile_name))
                     patched_tile = patchify(tile, (patch_size, patch_size, 3),
-                                            step=patch_size)
+                                            step=128)
                     
                     for i in range(patched_tile.shape[0]):
                         for j in range(patched_tile.shape[1]):
@@ -70,7 +70,7 @@ for path, subdirs, files in os.walk(root_dir):
                                                               label_name))
                     patched_label = patchify(label,
                                             (patch_size, patch_size, 3),
-                                             step=patch_size)
+                                             step=128)
                      
                     for i in range(patched_label.shape[0]):
                         for j in range(patched_label.shape[1]):
